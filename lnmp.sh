@@ -184,6 +184,17 @@ gitcode() {
      echo "$vhostname PHP-$php_version Listen: 0.0.0.0:$port"
 }
 
+import_mysql() {
+     sql_file_path=$(realpath $1)
+     db_name=$2
+     sql_payload="drop database if exists \`$db_name\`;
+CREATE DATABASE $db_name DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;
+use $db_name;
+source $sql_file_path;
+show tables;"
+     mysql -u root -p -e "$sql_payload"
+}
+
 #初始化配置Nginx与PHP
 init_conf_nginx_php() {
      edit_nginx_config "/etc/nginx/nginx.conf" "user" $web_default_user
@@ -243,6 +254,10 @@ server)
      echo "$2 Server!"
      command_all_server $2
      ;;
+import_mysql)
+     import_mysql $2 $3
+     ;;
+
 *)
      echo "$0 install"
      echo "$0 server [start|stop|reload]"
@@ -250,6 +265,7 @@ server)
      echo "$0 thinkphp \$thinkphp_version \$vhostname"
      echo "$0 laravel \$laravel_version \$vhostname"
      echo "$0 gitcode \$giturl \$vhostname \$php_version"
+     echo "$0 import_mysql \$sqlfile \$dbname"
      ;;
 
 esac
