@@ -39,7 +39,7 @@ command_all_server() {
 init_env() {
      echo "Install Base Env"
      apt update && apt upgrade
-     apt install sudo git curl vim wget unzip apt-transport-https lsb-release ca-certificates gnupg2 wget -y
+     apt install sudo git curl vim wget unzip apt-transport-https lsb-release ca-certificates gnupg2 wget unzip -y
 }
 
 #初始化PHP
@@ -94,6 +94,14 @@ php /usr/share/composer/composer.phar
 " >/usr/bin/composer
      chmod 755 /usr/bin/composer
      echo "Install Composer Command: composer"
+}
+
+install_phpmyadmin() {
+     phpmyadmin_fileurl="https://files.phpmyadmin.net/phpMyAdmin/5.0.2/phpMyAdmin-5.0.2-all-languages.zip"
+     wget $phpmyadmin_fileurl -O "./phpmyadmin.zip"
+     unzip "./phpmyadmin.zip" -d $default_webhost_dir"html"
+     rm "./phpmyadmin.zip"
+     chown $web_default_user:$web_default_group -R $default_webhost_dir"html"
 }
 
 echo_default_php_nginx_conf_tpl() {
@@ -214,7 +222,7 @@ init_conf_nginx_php() {
           edit_nginx_config $nginx_default_path "listen" $(echo "80$php_version" | sed "s/\.//g")
           edit_nginx_config $nginx_default_path "fastcgi_pass" "unix:$php_listen_sock"
      done
-     common_all_server reload
+     command_all_server reload
      for php_version in $(echo $php_versions | sed 's/|/ /g'); do
           echo "Default PHP-$php_version Listen: 0.0.0.0:$(echo "80$php_version" | sed "s/\.//g")"
      done
@@ -237,6 +245,8 @@ install)
      install_php
      echo "Install Nginx"
      install_nginx
+     echo "Install PHPMyAdmin"
+     install_phpmyadmin
      echo "Config Nginx & PHP$php_versions"
      init_conf_nginx_php
      echo "Install Composer"
