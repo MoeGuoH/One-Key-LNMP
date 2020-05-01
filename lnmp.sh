@@ -3,6 +3,14 @@ php_versions="5.6|7.0|7.1|7.2|7.3|7.4"
 php_base_packs="fpm|mysql|redis|mbstring|tokenizer|xml"
 web_default_user="www-data"
 web_default_group="www-data"
+default_webhost_dir="/var/www/"
+
+function rand() {
+     min=$1
+     max=$(($2 - $min + 1))
+     num=$(cat /dev/urandom | head -n 10 | cksum | awk -F ' ' '{print $1}')
+     echo $(($num % $max + $min))
+}
 
 edit_equal_config() {
      filepath=$1
@@ -18,7 +26,8 @@ edit_nginx_config() {
      sed -i -e "s|$var_name .*;|$var_name  $var_value;|" $filepath
 }
 
-common_all_server() {
+#命令所有服务
+command_all_server() {
      /etc/init.d/mysql $1
      /etc/init.d/nginx $1
      for php_version in $(echo $php_versions | sed 's/|/ /g'); do
@@ -26,12 +35,14 @@ common_all_server() {
      done
 }
 
+#初始化环境
 init_env() {
      echo "Install Base Env"
      apt update && apt upgrade
-     apt install sudo curl vim wget unzip apt-transport-https lsb-release ca-certificates gnupg2 wget -y
+     apt install sudo git curl vim wget unzip apt-transport-https lsb-release ca-certificates gnupg2 wget -y
 }
 
+#初始化PHP
 install_php() {
      wget -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg
      sh -c 'echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list'
@@ -44,6 +55,7 @@ install_php() {
      done
 }
 
+#初始化Nginx
 install_nginx() {
      echo "deb http://nginx.org/packages/debian $(lsb_release -cs) nginx" |
           sudo tee /etc/apt/sources.list.d/nginx.list
@@ -53,14 +65,16 @@ install_nginx() {
      apt update && apt install nginx -y
 }
 
+#初始化Mysql
 install_mysql() {
      deb_name="mysql-apt-config_0.8.15-1_all.deb"
      wget "https://repo.mysql.com//$deb_name"
-     dpkg -i "./$deb_name"
+     dpkg -i "./$deb_name" && rm "./$deb_name"
      apt-get update && apt-get install mysql-server -y
 
 }
 
+#初始化Composer
 install_composer() {
      php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
      php -r "if (hash_file('sha384', 'composer-setup.php') === 'e0012edf3e80b6978849f5eff0d4b4e4c79ff1609dd1e613307e16318854d24ae64f26d17af3ef0bf7cfb710ca74755a') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
@@ -71,10 +85,15 @@ install_composer() {
      for php_version in $(echo $php_versions | sed 's/|/ /g'); do
           echo "#!/bin/bash
 php$php_version /usr/share/composer/composer.phar
-" >/usr/bin/composer-php$php_version
-          chmod 755 /usr/bin/composer-php$php_version
-          echo "Install Composer Command: composer-php$php_version"
+" >/usr/bin/php$php_version-composer
+          chmod 755 /usr/bin/php$php_version-composer
+          echo "Install Composer Command: php$php_version-composer"
      done
+     echo "#!/bin/bash
+php /usr/share/composer/composer.phar
+" >/usr/bin/composer
+     chmod 755 /usr/bin/composer
+     echo "Install Composer Command: composer"
 }
 
 echo_default_php_nginx_conf_tpl() {
@@ -125,6 +144,46 @@ echo_default_php_nginx_conf_tpl() {
 }" >$1
 }
 
+defaultphp() {
+     php_version=$1
+     vhostname=$2
+     echo "GuGuGU"
+}
+
+thinkphp() {
+     thinkphp_version=$1
+     vhostname=$2
+     echo "GuGuGU"
+}
+
+laravel() {
+     laravel_version=$1
+     vhostname=$2
+     echo "GuGuGU"
+}
+
+gitcode() {
+     giturl=$1
+     vhostname=$2
+     php_version=$3
+     web_file_path="$default_webhost_dir$vhostname"
+     #Git Clone File
+     git clone $giturl $web_file_path
+     chown $web_default_user:$web_default_group -R $web_file_path
+     #Config Nginx
+     nginx_config_path="/etc/nginx/conf.d/$vhostname-php$php_version.conf"
+     php_listen_sock="/run/php/php$php_version-fpm.sock"
+     echo_default_php_nginx_conf_tpl $nginx_config_path
+     port="$(rand 10 655)$(echo "$php_version" | sed "s/\.//g")"
+     edit_nginx_config $nginx_config_path "root" $web_file_path
+     edit_nginx_config $nginx_config_path "listen" $port
+     edit_nginx_config $nginx_config_path "fastcgi_pass" "unix:$php_listen_sock"
+     #Reload
+     command_all_server reload
+     #Echo
+     echo "$vhostname PHP-$php_version Listen: 0.0.0.0:$port"
+}
+
 #初始化配置Nginx与PHP
 init_conf_nginx_php() {
      edit_nginx_config "/etc/nginx/nginx.conf" "user" $web_default_user
@@ -136,6 +195,7 @@ init_conf_nginx_php() {
           edit_equal_config $fpm_filepath "listen" $php_listen_sock
           edit_equal_config $fpm_filepath "user" $web_default_user
           edit_equal_config $fpm_filepath "group" $web_default_group
+          edit_equal_config "/etc/php/$php_version/fpm/php.ini" "display_errors" "On"
           #Config Nginx Default
           nginx_default_path="/etc/nginx/conf.d/default-php$php_version.conf"
           echo_default_php_nginx_conf_tpl $nginx_default_path
@@ -166,13 +226,30 @@ install)
      install_composer
      echo "Finish Install!"
      ;;
+defaultphp)
+     defaultphp $2 $3
+     ;;
+
+thinkphp)
+     thinkphp $2 $3
+     ;;
+laravel)
+     laravel $2 $3
+     ;;
+gitcode)
+     gitcode $2 $3 $4
+     ;;
 server)
      echo "$2 Server!"
-     common_all_server $2
+     command_all_server $2
      ;;
 *)
      echo "$0 install"
      echo "$0 server [start|stop|reload]"
+     echo "$0 defaultphp \$php_version \$vhostname"
+     echo "$0 thinkphp \$thinkphp_version \$vhostname"
+     echo "$0 laravel \$laravel_version \$vhostname"
+     echo "$0 gitcode \$giturl \$vhostname \$php_version"
      ;;
 
 esac
