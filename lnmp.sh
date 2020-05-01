@@ -1,6 +1,6 @@
 #!/bin/bash
 php_versions="5.6|7.0|7.1|7.2|7.3|7.4"
-php_base_packs="fpm|mysql|redis|mbstring|tokenizer|xml"
+php_base_packs="fpm|mysql|redis|mbstring|tokenizer|xml|gd"
 web_default_user="www-data"
 web_default_group="www-data"
 default_webhost_dir="/var/www/"
@@ -219,6 +219,12 @@ init_conf_nginx_php() {
           echo "Default PHP-$php_version Listen: 0.0.0.0:$(echo "80$php_version" | sed "s/\.//g")"
      done
 }
+php_mode_install() {
+     mod_name=$1
+     for php_version in $(echo $php_versions | sed 's/|/ /g'); do
+          apt install php$php_version-$mod_name -y
+     done
+}
 
 case "$1" in
 
@@ -254,12 +260,17 @@ server)
      echo "$2 Server!"
      command_all_server $2
      ;;
+php_mode_install)
+     php_mode_install $2
+     ;;
+
 import_mysql)
      import_mysql $2 $3
      ;;
 
 *)
      echo "$0 install"
+     echo "$0 php_mode_install \$mod_name"
      echo "$0 server [start|stop|reload]"
      echo "$0 defaultphp \$php_version \$vhostname"
      echo "$0 thinkphp \$thinkphp_version \$vhostname"
