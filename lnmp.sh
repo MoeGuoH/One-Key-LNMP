@@ -50,7 +50,7 @@ install_php() {
      for php_version in $(echo $php_versions | sed 's/|/ /g'); do
           apt install "php$php_version" -y
           for php_base_pack in $(echo $php_base_packs | sed 's/|/ /g'); do
-               apt install "php$php_version\-$php_base_pack" -y
+               apt install "php$php_version""-$php_base_pack" -y
           done
      done
 }
@@ -84,13 +84,13 @@ install_composer() {
      mv ./composer.phar /usr/share/composer
      for php_version in $(echo $php_versions | sed 's/|/ /g'); do
           echo "#!/bin/bash
-php$php_version /usr/share/composer/composer.phar
+php$php_version /usr/share/composer/composer.phar \$*
 " >/usr/bin/php$php_version-composer
           chmod 755 /usr/bin/php$php_version-composer
           echo "Install Composer Command: php$php_version-composer"
      done
      echo "#!/bin/bash
-php /usr/share/composer/composer.phar
+php /usr/share/composer/composer.phar \$*
 " >/usr/bin/composer
      chmod 755 /usr/bin/composer
      echo "Install Composer Command: composer"
